@@ -13,10 +13,7 @@ public class test {
 
       // create a new scanner with the specified String Object
       Scanner scanner = new Scanner(f);
-      String regexe = "\\b[1-9][0-9]+\\b";import java.util.*;
-      import java.io.*;
-      import java.util.regex.Pattern;
-      import java.util.regex.Matcher;
+      String regexe = "\\b[1-9][0-9]+\\b";
       String replacement = " 1909 ";
  
     // Step 1: Allocate a Pattern object to compile a regexe

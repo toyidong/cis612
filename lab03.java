@@ -8,31 +8,34 @@ import java.nio.file.Paths;
 public class lab03 {
     public static void main(String[] args) throws Exception {
         String url = "https://www.infoplease.com/homework-help/history/collected-state-union-addresses-us-presidents";
-        // pre-process of content from webpage
-        String fileName = getContentFromURL(url);
-        // extract data and save into dataFile
-        String dataFile = extractDataFromTxt(fileName);
+        // prepare a pattern for substring search
+        Pattern pattern = Pattern.compile("class=\"article\"><a href=");
+        // prepare outfile name 
+        String contentFile = "extractData.txt";
+        // File f = File.createTempFile("extractData", ".txt");
+        // extract content from URL, by matched pattern
+        getMatchedContentFromURL(url, pattern, contentFile, 0);
         // create CSV file and txt files with address 
-        createCSVandAddressTxtFiles(dataFile);
+        createCSVandAddressTxtFiles(contentFile);
 
         System.out.println(Paths.get(".").toAbsolutePath().normalize().toString());
         
     }
-    // method to retrieve content from webpage and process data for first time
-    // return output file name
-    static String getContentFromURL(String url) throws Exception {
+    /* method to retrieve content from webpage and process data for first time */
+    static void getMatchedContentFromURL(String url, Pattern pattern, String contentFile, int choice) throws Exception {
         String content = "";
         URLConnection connection = null;
-        // prepare a pattern for substring search
-        Pattern pattern = Pattern.compile("class=\"article\"><a href=");
+        File temp = new File("temp.txt");
         try {
             // create a URL object for HTTP connection
             connection =  new URL(url).openConnection();
             // use a Scanner object to accept input stream from HTTP connection
             Scanner scanner = new Scanner(connection.getInputStream());
             // prepare objects for file output stream and print output stream
-            FileOutputStream outStream = new FileOutputStream("outfile01.txt");
+            FileOutputStream outStream = new FileOutputStream(temp);
             PrintStream printStream = new PrintStream(outStream);
+            // string for searching pattern creation
+            String[] regexeList = {"\\b[1-9][0-9]+\\b","</div><p> "};
             scanner.useDelimiter(pattern);
             while(scanner.hasNext()){
                 content = scanner.next();
@@ -42,23 +45,24 @@ public class lab03 {
             }
             printStream.close();    // close output stream
             scanner.close();        // close scanner
+            extractDataFromTxt("temp.txt", contentFile, regexeList[choice]);
         }catch ( Exception ex ) {
             ex.printStackTrace();
         }
-        return "outfile01.txt";     // return the output file name
+        // temp.delete(); // after job done, delete temp file
     }
-    // method to extract data from txt file and save into another output file
-    // return new output file name
-    static String extractDataFromTxt(String inputFile) throws Exception {
+
+    /* method to extract data from txt file and save into another output file */
+    static void extractDataFromTxt(String tempFile, String contentFile, String regexe) throws Exception {
         // prepare Scanner object for reading input file
         String s = "";
-        File f = new File(inputFile);
+        File f = new File(tempFile);
+        File content = new File(contentFile);
         Scanner scanner = new Scanner(f);
         // prepare objects for File output stream and Print output stream
-        FileOutputStream out = new FileOutputStream("outfile02.txt");
+        FileOutputStream out = new FileOutputStream(content);
         PrintStream outprint = new PrintStream(out);
-        // string for searching pattern creation
-        String regexe = "\\b[1-9][0-9]+\\b";
+        
         // Step 1: Allocate a Pattern object to compile a regexe
         Pattern pattern = Pattern.compile(regexe, Pattern.CASE_INSENSITIVE);
         
@@ -76,9 +80,8 @@ public class lab03 {
        }
         scanner.close();    // close the scanner
         outprint.close();   // close the output stream
-        return "outfile02.txt"; // return outfile name
     }
-    // find the specific substring
+    /* find the specific substring */
     static String findSubstring(String s){
         int beginIndex = s.indexOf("\">");
         int endIndex = s.indexOf(")</a>");
@@ -87,6 +90,7 @@ public class lab03 {
         }
         return s.substring(beginIndex+2, endIndex+1);
     }
+    /* create CSV file and txt files containing Union Address */
     static void createCSVandAddressTxtFiles(String inputFile) throws Exception {
         String path = Paths.get(".").toAbsolutePath().normalize().toString();
         String addressUrl = "https://www.infoplease.com/homework-help/us-documents/state-union-adress";
@@ -101,19 +105,28 @@ public class lab03 {
 
         while(input.hasNextLine()){
             String[] tokenList = null;
-            String output, temp, tempUrl, txtFileName = null;
+            String output, tempUrl, txtFileName = null;
             tokenList = input.nextLine().replace(" (", " ").replace(", ", " ").replace(")", " ").split(" ");
             tempUrl = getAddressUrl(addressUrl, tokenList);
             output = "" + tokenList[0] + " " + tokenList[1] + 
                     "\t" + tokenList[2] + " " + tokenList[3] + " " + ", " + tokenList[4];
-            output += "\t"+path+"\\InfoUnionAddress_"+index.toString()+".txt";
-            txtFileName = output;
+            txtFileName = path+"\\InfoUnionAddress_"+index.toString()+".txt";
+            index++;
+            output += "\t" + txtFileName;
+            // get content of the Union Address for each president
+            String regex = "</div><p> ";
+            Pattern pattern = Pattern.compile(regex);
+            getMatchedContentFromURL(tempUrl, pattern, txtFileName, 1);
+
             outprint.println(output);
             for(int i=0; i<tokenList.length;i++) System.out.println(i + "  " + tokenList[i]);
             System.out.println(tempUrl);
-            System.out.println(output);
+            System.out.println("This is output: " + output);
+            System.out.println("This is txtfile: " + txtFileName);
             break;
         }
+        input.close();
+        outprint.close();
     }
     static String getAddressUrl(String url, String[] tokenList){
         for(int i=0; i<tokenList.length;i++)
