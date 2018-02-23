@@ -4,6 +4,7 @@ import java.net.*;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.nio.file.Paths;
+import java.util.concurrent.TimeUnit;
 
 public class lab03 {
     public static void main(String[] args) throws Exception {
@@ -14,15 +15,17 @@ public class lab03 {
         String contentFile = "extractData.txt";
         // File f = File.createTempFile("extractData", ".txt");
         // extract content from URL, by matched pattern
-        getMatchedContentFromURL(url, pattern, contentFile, 0);
+        getMatchedContentFromURL(url, pattern, contentFile);
+        TimeUnit.MILLISECONDS.sleep(100);
         // create CSV file and txt files with address 
         createCSVandAddressTxtFiles(contentFile);
+        TimeUnit.MILLISECONDS.sleep(100);
 
         System.out.println(Paths.get(".").toAbsolutePath().normalize().toString());
         
     }
     /* method to retrieve content from webpage and process data for first time */
-    static void getMatchedContentFromURL(String url, Pattern pattern, String contentFile, int choice) throws Exception {
+    static void getMatchedContentFromURL(String url, Pattern pattern, String contentFile) throws Exception {
         String content = "";
         URLConnection connection = null;
         File temp = new File("temp.txt");
@@ -35,21 +38,24 @@ public class lab03 {
             FileOutputStream outStream = new FileOutputStream(temp);
             PrintStream printStream = new PrintStream(outStream);
             // string for searching pattern creation
-            String[] regexeList = {"\\b[1-9][0-9]+\\b","</div><p> "};
+            String regexe = "\\b[1-9][0-9]+\\b";
+            String s = "class=\"article\"><a href=";
             scanner.useDelimiter(pattern);
-            while(scanner.hasNext()){
-                content = scanner.next();
-                Matcher matcher = pattern.matcher(content);     // find lines with matching pattern
-                content = matcher.replaceAll("\n");             // replace matching pattern with newline
-                printStream.println(content);               // print output to file
+            while(scanner.hasNextLine()){
+                content = scanner.nextLine();
+                if(content.contains(s)){
+                    content = content.replace("class=\"article\"><a href=", "\n");
+                    printStream.println(content);               // print output to file
+                }               
             }
             printStream.close();    // close output stream
             scanner.close();        // close scanner
-            extractDataFromTxt("temp.txt", contentFile, regexeList[choice]);
+            extractDataFromTxt("temp.txt", contentFile, regexe);
         }catch ( Exception ex ) {
             ex.printStackTrace();
         }
-        // temp.delete(); // after job done, delete temp file
+        temp.delete(); // after job done, delete temp file
+        TimeUnit.MILLISECONDS.sleep(100);
     }
 
     /* method to extract data from txt file and save into another output file */
@@ -78,6 +84,7 @@ public class lab03 {
                 }    
             }
        }
+        TimeUnit.MILLISECONDS.sleep(100);
         scanner.close();    // close the scanner
         outprint.close();   // close the output stream
     }
@@ -93,7 +100,7 @@ public class lab03 {
     /* create CSV file and txt files containing Union Address */
     static void createCSVandAddressTxtFiles(String inputFile) throws Exception {
         String path = Paths.get(".").toAbsolutePath().normalize().toString();
-        String addressUrl = "https://www.infoplease.com/homework-help/us-documents/state-union-adress";
+        String addressUrl = "https://www.infoplease.com/homework-help/us-documents/state-union-address";
         // prepare objects for File output stream and Print output stream
         FileOutputStream out = new FileOutputStream("table.csv");
         PrintStream outprint = new PrintStream(out);
@@ -102,35 +109,123 @@ public class lab03 {
         File inFile = new File(inputFile);
         Scanner input = new Scanner(inFile);
         Integer index = 1;
-
+        FileOutputStream bigFile = new FileOutputStream("bigFile.txt");
+        PrintStream printBigFile = new PrintStream(bigFile);
+        printBigFile.print("");
+        printBigFile.close();
         while(input.hasNextLine()){
             String[] tokenList = null;
-            String output, tempUrl, txtFileName = null;
-            tokenList = input.nextLine().replace(" (", " ").replace(", ", " ").replace(")", " ").split(" ");
+            String output = "", tempUrl = "", txtFileName = "";
+            String startLine = input.nextLine();
+            tokenList = startLine.replace(" (", " ").replace(", ", " ").replace(")", " ").split(" ");
             tempUrl = getAddressUrl(addressUrl, tokenList);
-            output = "" + tokenList[0] + " " + tokenList[1] + 
-                    "\t" + tokenList[2] + " " + tokenList[3] + " " + ", " + tokenList[4];
-            txtFileName = path+"\\InfoUnionAddress_"+index.toString()+".txt";
+            if(tokenList[tokenList.length-1].contains("1843")){
+                output += tokenList[0] + " " + tokenList[1] + 
+                "\t" + tokenList[2] + " " + tokenList[3];
+            }
+            else if(tokenList.length>5){
+                for(int i=0;i<3;i++) output += tokenList[i] + " ";
+                output += "\t";
+                output += tokenList[3] + " " + tokenList[4] + ", " + tokenList[5];
+            }
+            else{
+                output += tokenList[0] + " " + tokenList[1] + 
+                    "\t" + tokenList[2] + " " + tokenList[3] + ", " + tokenList[4];
+            }        
+            txtFileName = "InfoUnionAddress_"+index.toString()+".txt";
             index++;
-            output += "\t" + txtFileName;
-            // get content of the Union Address for each president
-            String regex = "</div><p> ";
-            Pattern pattern = Pattern.compile(regex);
-            getMatchedContentFromURL(tempUrl, pattern, txtFileName, 1);
+            TimeUnit.MILLISECONDS.sleep(100);
+            File temp1 = new File(txtFileName);
+            FileWriter tempWrite = new FileWriter(temp1);
+            tempWrite.write("");
+            tempWrite.close();
+            TimeUnit.MILLISECONDS.sleep(100);
+            
+            output += "\t" + path+"/"+txtFileName;
+            getAddressContentFromURL(tempUrl, txtFileName, startLine);
+            TimeUnit.MILLISECONDS.sleep(100);
 
             outprint.println(output);
-            for(int i=0; i<tokenList.length;i++) System.out.println(i + "  " + tokenList[i]);
-            System.out.println(tempUrl);
-            System.out.println("This is output: " + output);
-            System.out.println("This is txtfile: " + txtFileName);
-            break;
+            // if(index > 50)break;
         }
         input.close();
         outprint.close();
     }
+    static void getAddressContentFromURL(String url, String txtFileName, String startLine) throws Exception {
+        try{
+        String content = "";
+        URLConnection connection = null;
+        File temp = new File(txtFileName);
+        connection =  new URL(url).openConnection();
+            
+                Scanner scanner = new Scanner(connection.getInputStream());
+             
+                FileOutputStream outStream = new FileOutputStream(temp);
+                PrintStream printStream = new PrintStream(outStream);
+                printStream.println(startLine);
+                BufferedWriter bw = new BufferedWriter(new FileWriter("bigFile.txt", true));
+                bw.write(startLine);
+                bw.write("\n");
+                bw.flush();
+                       
+        while(scanner.hasNextLine()){
+            TimeUnit.MILLISECONDS.sleep(100);
+            // int i = 0;
+            // if(i<200){
+            //     i++;
+            //     content = scanner.nextLine();
+            //     continue;
+            // }
+            content = scanner.nextLine();
+            if(content.contains(" </p></div><div class=")){
+                String begin = "</h2></div></div></div><p> ";
+                String end = " </p></div><div class=\"navfooter\">";
+                String change = " </p><p> ";
+                // int index = content.IndexOf(s);
+                int beginIndex, endIndex = 0;
+                beginIndex = content.indexOf(begin) + begin.length();
+                endIndex = content.indexOf(end);
+                System.out.println(beginIndex + " " + endIndex);
+                String paragraph = content.substring(beginIndex, endIndex).replaceAll(change, "\n");
+                bw.write(paragraph);
+                bw.write("\n");
+                bw.flush();
+                TimeUnit.MILLISECONDS.sleep(100);
+                printStream.println(paragraph); // print output to file
+                TimeUnit.MILLISECONDS.sleep(100);
+            }                      
+        }
+
+            printStream.close(); // close output stream
+            scanner.close();   // close scanner
+            bw.close();
+        //temp.delete(); // after job done, delete temp file
+        }
+        catch(ArrayIndexOutOfBoundsException e){
+            System.out.println(startLine + "  Warning: ArrayIndexOutOfBoundsException");
+            return;
+         }
+         catch(FileNotFoundException e){
+            System.out.println(startLine + "  Warning: GetInputStreamFileNotFoundException" + "\t"+ url);
+            return;
+         }
+        // catch (Exception ex){
+        //     System.err.println(startLine + " " + Trace);
+        //     return;
+        // }
+    }
+
     static String getAddressUrl(String url, String[] tokenList){
+        if(tokenList.length > 5){
+            String newString = "";
+            for(int i=0;i<tokenList[1].length();i++){
+                if(tokenList[1].charAt(i) !='.') newString += tokenList[1].charAt(i);
+            }
+            tokenList[1] = newString;
+        }
         for(int i=0; i<tokenList.length;i++)
             url += "-" + tokenList[i];
+        if(url.contains(".-")) url.replaceAll(".-", "-");
         return url;
     }
     static String getOutputForCSV(String[] tokenList){
