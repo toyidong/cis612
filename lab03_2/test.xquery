@@ -1,0 +1,1 @@
+for $x in doc("bibs.xml")
